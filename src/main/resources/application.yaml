@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: pinokio
+  main:
+    banner-mode: off
+server:
+  port: ${PORT:9999}
+application:
+  algorithm: MURMUR32
+  redis-filter-name: ${REDIS_FILTER_NAME:pinokioFilter}
+  redis-filter-capacity: ${REDIS_FILTER_CAPACITY:607000000}
+  redis-filter-max-iterations: ${REDIS_FILTER_MAX_ITERATIONS:20}
+  max-hash-retries: ${MAX_HASH_ITERATIONS:3}
+  redis-filter-buckets: ${REDIS_FILTER_BUCKETS:4}
+  dynamodb:
+    region: ${AWS_REGION:eu-west-1}
+    table: ${DYNAMODB_TABLE:pinokio}
+  base-url: ${BASE_URL:http://localhost:9999}
+  url-expiration-in-days: ${URL_EXPIRATION_IN_DAYS:90}
+redis:
+  host: ${REDIS_HOST:localhost}
+  port: ${REDIS_PORT:6379}
+  password: ${REDIS_PASSWORD:}
+  timeout: ${REDIS_TIMEOUT:5000}
