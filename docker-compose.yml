@@ -1,9 +1,26 @@
 version: '3.8'
 
 services:
-  redis-stack:
-    image: redis/redis-stack-server:latest
+  localstack:
+    image: localstack/localstack:latest
+    container_name: localstack
     ports:
-      - "6379:6379"
+      - "4566:4566"
+      - "4571:4571"
+    environment:
+      - SERVICES=dynamodb
+      - DEBUG=1
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - "./src/main/resources/init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh"
+      - "./localstack:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+
+  dynamodb-admin:
+    image: aaronshaf/dynamodb-admin
+    ports:
       - "8001:8001"
-    restart: unless-stopped
+    environment:
+      DYNAMO_ENDPOINT: http://localstack:4566
+    depends_on:
+      - localstack

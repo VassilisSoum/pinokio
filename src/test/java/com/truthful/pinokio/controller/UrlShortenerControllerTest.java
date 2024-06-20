@@ -3,11 +3,14 @@ package com.truthful.pinokio.controller;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
 
+import com.soumakis.control.EitherT;
+import com.soumakis.control.TryT;
 import com.truthful.pinokio.controller.dto.ShortenedUrlRequestDto;
 import com.truthful.pinokio.controller.dto.ShortenedUrlResponseDto;
+import com.truthful.pinokio.service.model.UrlShortenerError;
 import com.truthful.pinokio.service.UrlShortenerService;
-import io.vavr.control.Try;
-import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,89 +23,104 @@ import org.springframework.http.ResponseEntity;
 @ExtendWith(MockitoExtension.class)
 class UrlShortenerControllerTest {
 
-  @Mock private UrlShortenerService urlShortenerService;
+  @Mock
+  private UrlShortenerService urlShortenerService;
 
-  @InjectMocks private UrlShortenerController urlShortenerController;
+  @InjectMocks
+  private UrlShortenerController urlShortenerController;
 
   @Test
   @DisplayName("should return shortened url response when shorten url service is successful")
-  void shouldReturnShortenedUrlResponseWhenShortenUrlServiceIsSuccessful() {
+  void shouldReturnShortenedUrlResponseWhenShortenUrlServiceIsSuccessful()
+      throws ExecutionException, InterruptedException {
     ShortenedUrlRequestDto requestDto = new ShortenedUrlRequestDto("http://longurl.com");
     when(urlShortenerService.shortenUrl(requestDto.longUrl()))
-        .thenReturn(Try.success("http://shorturl.com"));
+        .thenReturn(EitherT.right("http://shorturl.com"));
 
-    ResponseEntity<ShortenedUrlResponseDto> response =
+    CompletableFuture<ResponseEntity<?>> response =
         urlShortenerController.shortenUrl(requestDto);
 
-    assertEquals(HttpStatus.OK, response.getStatusCode());
-    assertEquals("http://shorturl.com", response.getBody().shortUrl());
-    assertEquals("http://longurl.com", response.getBody().originalUrl());
+    assertEquals(HttpStatus.OK, response.get().getStatusCode());
+    assertEquals("http://shorturl.com",
+        ((ShortenedUrlResponseDto) response.get().getBody()).shortUrl());
+    assertEquals("http://longurl.com",
+        ((ShortenedUrlResponseDto) response.get().getBody()).originalUrl());
   }
 
   @Test
   @DisplayName("should return not found when original url is not found")
-  void shouldReturnNotFoundWhenOriginalUrlIsNotFound() {
-    when(urlShortenerService.getOriginalUrl("shortUrl")).thenReturn(Try.success(Optional.empty()));
+  void shouldReturnNotFoundWhenOriginalUrlIsNotFound()
+      throws ExecutionException, InterruptedException {
+    when(urlShortenerService.getOriginalUrl("shortUrl")).thenReturn(
+        EitherT.left(UrlShortenerError.HASH_NOT_FOUND));
 
-    ResponseEntity<?> response = urlShortenerController.redirectToOriginalUrl("shortUrl");
+    CompletableFuture<ResponseEntity<?>> response =
+        urlShortenerController.redirectToOriginalUrl("shortUrl");
 
-    assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+    assertEquals(HttpStatus.NOT_FOUND, response.get().getStatusCode());
   }
 
   @Test
   @DisplayName("should return moved permanently when original url is found")
-  void shouldReturnMovedPermanentlyWhenOriginalUrlIsFound() {
+  void shouldReturnMovedPermanentlyWhenOriginalUrlIsFound()
+      throws ExecutionException, InterruptedException {
     when(urlShortenerService.getOriginalUrl("shortUrl"))
-        .thenReturn(Try.success(Optional.of("http://longurl.com")));
+        .thenReturn(EitherT.right("http://longurl.com"));
 
-    ResponseEntity<?> response = urlShortenerController.redirectToOriginalUrl("shortUrl");
+    CompletableFuture<ResponseEntity<?>> response =
+        urlShortenerController.redirectToOriginalUrl("shortUrl");
 
-    assertEquals(HttpStatus.MOVED_PERMANENTLY, response.getStatusCode());
-    assertEquals("http://longurl.com", response.getHeaders().getLocation().toString());
+    assertEquals(HttpStatus.MOVED_PERMANENTLY, response.get().getStatusCode());
+    assertEquals("http://longurl.com", response.get().getHeaders().getLocation().toString());
   }
 
   @Test
   @DisplayName("should return ok when delete url service is successful")
-  void shouldReturnOkWhenDeleteUrlServiceIsSuccessful() {
-    when(urlShortenerService.deleteUrl("shortUrl")).thenReturn(Try.success(null));
+  void shouldReturnOkWhenDeleteUrlServiceIsSuccessful()
+      throws ExecutionException, InterruptedException {
+    when(urlShortenerService.deleteUrl("shortUrl")).thenReturn(TryT.of(null));
 
-    ResponseEntity<Void> response = urlShortenerController.deleteUrl("shortUrl");
+    CompletableFuture<ResponseEntity<Void>> response = urlShortenerController.deleteUrl("shortUrl");
 
-    assertEquals(HttpStatus.OK, response.getStatusCode());
+    assertEquals(HttpStatus.OK, response.get().getStatusCode());
   }
 
   @Test
   @DisplayName("should return internal server error when shorten url service fails")
-  void shouldReturnInternalServerErrorWhenShortenUrlServiceFails() {
+  void shouldReturnInternalServerErrorWhenShortenUrlServiceFails()
+      throws ExecutionException, InterruptedException {
     ShortenedUrlRequestDto requestDto = new ShortenedUrlRequestDto("http://longurl.com");
     when(urlShortenerService.shortenUrl(requestDto.longUrl()))
-        .thenReturn(Try.failure(new RuntimeException("Failed to shorten URL")));
+        .thenReturn(EitherT.left(UrlShortenerError.GENERIC_ERROR));
 
-    ResponseEntity<ShortenedUrlResponseDto> response =
+    CompletableFuture<ResponseEntity<?>> response =
         urlShortenerController.shortenUrl(requestDto);
 
-    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.get().getStatusCode());
   }
 
   @Test
   @DisplayName("should return internal server error when get original url service fails")
-  void shouldReturnInternalServerErrorWhenGetOriginalUrlServiceFails() {
+  void shouldReturnInternalServerErrorWhenGetOriginalUrlServiceFails()
+      throws ExecutionException, InterruptedException {
     when(urlShortenerService.getOriginalUrl("shortUrl"))
-        .thenReturn(Try.failure(new RuntimeException("Failed to get original URL")));
+        .thenReturn(EitherT.left(UrlShortenerError.GENERIC_ERROR));
 
-    ResponseEntity<?> response = urlShortenerController.redirectToOriginalUrl("shortUrl");
+    CompletableFuture<ResponseEntity<?>> response =
+        urlShortenerController.redirectToOriginalUrl("shortUrl");
 
-    assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.get().getStatusCode());
   }
 
   @Test
   @DisplayName("should return internal server error when delete url service fails")
-  void shouldReturnInternalServerErrorWhenDeleteUrlServiceFails() {
+  void shouldReturnInternalServerErrorWhenDeleteUrlServiceFails()
+      throws ExecutionException, InterruptedException {
     when(urlShortenerService.deleteUrl("shortUrl"))
-        .thenReturn(Try.failure(new RuntimeException("Failed to delete URL")));
+        .thenReturn(TryT.ofFailure(new RuntimeException("Failed to delete URL")));
 
-    ResponseEntity<Void> response = urlShortenerController.deleteUrl("shortUrl");
+    CompletableFuture<ResponseEntity<Void>> response = urlShortenerController.deleteUrl("shortUrl");
 
-    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.get().getStatusCode());
   }
 }

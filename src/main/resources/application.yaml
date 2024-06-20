@@ -1,4 +1,9 @@
 spring:
+  profiles:
+    active: ${ACTIVE_PROFILE:local}
+  threads:
+    virtual:
+      enabled: ${VIRTUAL_THREADS_ENABLED:true}
   application:
     name: pinokio
   main:
@@ -6,19 +11,13 @@ spring:
 server:
   port: ${PORT:9999}
 application:
-  algorithm: MURMUR32
-  redis-filter-name: ${REDIS_FILTER_NAME:pinokioFilter}
-  redis-filter-capacity: ${REDIS_FILTER_CAPACITY:607000000}
-  redis-filter-max-iterations: ${REDIS_FILTER_MAX_ITERATIONS:20}
+  algorithm: ${HASHING_ALGORITHM:MURMUR32}
   max-hash-retries: ${MAX_HASH_ITERATIONS:3}
-  redis-filter-buckets: ${REDIS_FILTER_BUCKETS:4}
   dynamodb:
-    region: ${AWS_REGION:eu-west-1}
+    region: ${AWS_REGION:us-east-1}
     table: ${DYNAMODB_TABLE:pinokio}
+    access-key-id: ${AWS_ACCESS_KEY_ID:test} # Default value is used by LocalStack
+    secret-access-key: ${AWS_SECRET_ACCESS_KEY:test} # Default value is used by LocalStack
+    endpoint-url: ${DYNAMODB_ENDPOINT:http://localhost:4566} # Used by LocalStack only
   base-url: ${BASE_URL:http://localhost:9999}
   url-expiration-in-days: ${URL_EXPIRATION_IN_DAYS:90}
-redis:
-  host: ${REDIS_HOST:localhost}
-  port: ${REDIS_PORT:6379}
-  password: ${REDIS_PASSWORD:}
-  timeout: ${REDIS_TIMEOUT:5000}
